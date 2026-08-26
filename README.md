@@ -21,30 +21,26 @@ A LinuxServer.io style container for Google Antigravity 2.0 Desktop built on the
 
 ## Quickstart
 
-### Docker Compose
+### Docker Compose (Published Image)
 
-Create a `docker-compose.yml` file:
+Copy the example environment file and edit it to match your setup:
+
+```bash
+curl -o .env https://raw.githubusercontent.com/JonnyDB/docker-antigravity/main/.env.example
+# Edit .env to set your PUID, PGID, TZ, etc.
+```
+
+Create a `docker-compose.yml`:
 
 ```yaml
 services:
   antigravity:
     image: ghcr.io/jonnydb/antigravity:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
     container_name: antigravity
     security_opt:
       - seccomp:unconfined
     shm_size: "1gb"
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=America/New_York
-      - TITLE=Google Antigravity 2.0
-      # Optional: Pin a specific version of Antigravity Desktop
-      - ANTIGRAVITY_VERSION=2.10.0-4996573600546816
-      # Optional: Auto-update on startup (true/false)
-      - AUTO_UPDATE=false
+    env_file: .env
     volumes:
       - ./config:/config
       - ./workspace:/config/workspace
@@ -61,20 +57,70 @@ Start the service:
 docker compose up -d
 ```
 
+On first boot the container downloads and installs Antigravity Desktop and the `agy` CLI into the `./config` volume. Subsequent restarts use the cached install.
+
+### Building from Source
+
+Clone the repo and run:
+
+```bash
+git clone https://github.com/JonnyDB/docker-antigravity.git
+cd docker-antigravity
+docker compose up -d --build
+```
+
 ---
 
 ## Authentication
 
 Google Antigravity requires an authorized Google account.
 
-### Signing In via the Web Desktop
+### Option 1: Copy an Existing OAuth Token (Recommended / Headless)
+
+If you have already authenticated with Google Antigravity on your local workstation or laptop, Antigravity stores your OAuth token in:
+- **Linux / macOS**: `~/.gemini/jetski-standalone-oauth-token`
+- **Windows**: `%USERPROFILE%\.gemini\jetski-standalone-oauth-token`
+
+You can reuse your existing token without signing in again:
+
+**Local Deployment:**
+Copy the token file into your local `./config/.gemini` volume directory:
+```bash
+mkdir -p ./config/.gemini
+cp ~/.gemini/jetski-standalone-oauth-token ./config/.gemini/
+chmod 600 ./config/.gemini/jetski-standalone-oauth-token
+```
+
+**Remote Server / Cloud VPS:**
+Transfer the token from your local machine to the server running Docker:
+```bash
+scp ~/.gemini/jetski-standalone-oauth-token user@your-server:/path/to/agy-docker/config/.gemini/
+```
+
+**Running Container:**
+Copy directly into an active container:
+```bash
+docker cp ~/.gemini/jetski-standalone-oauth-token antigravity:/config/.gemini/
+```
+
+**Via Environment Variable (`.env`):**
+Alternatively, set the token in your `.env` file (the container automatically pre-seeds it on startup):
+```bash
+ANTIGRAVITY_OAUTH_TOKEN=your_token_string_here
+```
+
+---
+
+### Option 2: Signing In via the Web Desktop
 
 1. Open `https://localhost:3001` or `http://localhost:3000` in your web browser.
-2. Click the Sign In button inside the Antigravity window.
-3. Google Chrome will open inside the desktop session to handle the Google login page.
+2. Click the **Sign In** button inside the Antigravity desktop window.
+3. Google Chrome will open inside the virtual desktop session to handle the Google login page.
 4. Sign in to your Google Account. Once approved, the callback to `127.0.0.1` completes inside the container and Antigravity connects.
 
-### Signing In via the CLI
+---
+
+### Option 3: Signing In via the CLI
 
 You can also run the interactive authentication flow from your terminal:
 
@@ -82,7 +128,7 @@ You can also run the interactive authentication flow from your terminal:
 docker exec -it antigravity agy-login
 ```
 
-Follow the URL in your host browser and paste the verification code back into the prompt.
+Follow the URL displayed in your terminal on your host browser and paste the verification code back into the prompt.
 
 ---
 

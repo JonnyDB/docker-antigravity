@@ -18,4 +18,4 @@ echo "2. Authorize your Google account."
 echo "3. Paste the authorization code back here if prompted."
 echo "================================================================================"
 
-s6-setuidgid abc env HOME=/config "$AGY_BIN"
+s6-setuidgid abc env HOME=/config "$AGY_BIN" auth login

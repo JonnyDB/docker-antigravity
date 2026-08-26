@@ -9,21 +9,21 @@ services:
       - seccomp:unconfined # Required for Chrome/Electron sandboxing
     shm_size: "1gb"        # Essential for Electron / KasmVNC rendering performance
     environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=America/New_York
-      - TITLE=Google Antigravity 2.0
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+      - TITLE=${TITLE:-Google Antigravity 2.0}
       # Optional: Pin a specific version of Antigravity Desktop
-      - ANTIGRAVITY_VERSION=2.10.0-4996573600546816
+      - ANTIGRAVITY_VERSION=${ANTIGRAVITY_VERSION:-2.10.0-4996573600546816}
       # Optional: Auto-update on container start (true/false)
-      - AUTO_UPDATE=false
+      - AUTO_UPDATE=${AUTO_UPDATE:-false}
       # Optional: HTTP Basic Authentication for web access
-      # - CUSTOM_USER=admin
-      # - PASSWORD=secretpassword
+      # - CUSTOM_USER=${CUSTOM_USER}
+      # - PASSWORD=${PASSWORD}
       # Optional: Sudo password for 'abc' user
-      # - SUDO_PASSWORD=password
+      # - SUDO_PASSWORD=${SUDO_PASSWORD}
       # Optional: Pre-seed OAuth token
-      # - ANTIGRAVITY_OAUTH_TOKEN=your_token_here
+      # - ANTIGRAVITY_OAUTH_TOKEN=${ANTIGRAVITY_OAUTH_TOKEN}
     volumes:
       - ./config:/config
       - ./workspace:/config/workspace

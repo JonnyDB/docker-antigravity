@@ -1,14 +1,30 @@
 #!/bin/bash
 # Wrapper script to launch Antigravity 2.0 with proper sandboxing and rendering flags
 
-BINARY="/config/app/antigravity/antigravity"
-if [ ! -f "$BINARY" ]; then
-    BINARY="/config/app/antigravity/Antigravity"
-fi
+_find_binary() {
+    if [ -f "/config/app/antigravity/antigravity" ]; then
+        echo "/config/app/antigravity/antigravity"
+    elif [ -f "/config/app/antigravity/Antigravity" ]; then
+        echo "/config/app/antigravity/Antigravity"
+    fi
+}
 
-if [ ! -f "$BINARY" ]; then
+BINARY="$(_find_binary)"
+
+if [ -z "$BINARY" ]; then
     echo "[antigravity] Antigravity 2.0 executable not found in /config/app/antigravity. Running first-time installation..."
-    /etc/s6-overlay/scripts/init-antigravity
+    if [ "$(id -u)" -eq 0 ]; then
+        /etc/s6-overlay/scripts/init-antigravity
+    else
+        echo "[antigravity] ERROR: Not running as root — cannot install. Please restart the container to trigger init." >&2
+        exit 1
+    fi
+    # Re-probe after install
+    BINARY="$(_find_binary)"
+    if [ -z "$BINARY" ]; then
+        echo "[antigravity] ERROR: Installation failed — binary still not found." >&2
+        exit 1
+    fi
 fi
 
 exec "$BINARY" --no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage "$@"

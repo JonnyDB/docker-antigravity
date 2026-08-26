@@ -24,7 +24,7 @@ ENV DEBIAN_FRONTEND="noninteractive" \
     PIPX_BIN_DIR="/config/.local/bin" \
     PATH="/lsiopy/bin:/config/.local/bin:/config/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-# Install system dependencies, desktop libraries, Node.js, Python, development tools, Google Chrome, and set Selkies logo
+# Layer 1: System dependencies and development tools (rarely changes)
 RUN \
     echo "**** install system dependencies and development tools ****" && \
     apt-get update && \
@@ -44,6 +44,7 @@ RUN \
         libsecret-1-0 \
         nano \
         net-tools \
+        netcat-openbsd \
         nodejs \
         openssh-client \
         pkg-config \
@@ -63,26 +64,32 @@ RUN \
         xclip \
         xdg-utils \
         zenity && \
-    npm install -g corepack yarn pnpm && \
-    \
+    apt-get clean && \
+    rm -rf \
+        /tmp/* \
+        /var/lib/apt/lists/* \
+        /var/tmp/*
+
+# Layer 2: Google Chrome for in-container OAuth authentication (changes with Chrome updates)
+RUN \
     echo "**** install Google Chrome for in-container OAuth authentication ****" && \
     mkdir -p /etc/apt/keyrings && \
     curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg && \
     echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
     apt-get update && \
     apt-get install -y --no-install-recommends google-chrome-stable && \
-    \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Layer 3: Global Node.js package managers (changes with tool version pins)
+RUN npm install -g corepack yarn pnpm
+
+# Layer 4: Selkies branding (changes only when logo changes)
+RUN \
     echo "**** install Antigravity logo for Selkies web client ****" && \
     mkdir -p /usr/share/selkies/www && \
     curl -fsSL -o /usr/share/selkies/www/icon.png \
-        https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/dark/antigravity-color.png && \
-    \
-    echo "**** clean up apt caches ****" && \
-    apt-get clean && \
-    rm -rf \
-        /tmp/* \
-        /var/lib/apt/lists/* \
-        /var/tmp/*
+        https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/dark/antigravity-color.png
 
 # Copy local filesystem overlay
 COPY root/ /
@@ -101,6 +108,10 @@ RUN chmod +x \
 
 # Ports: 3000 (HTTP Desktop GUI), 3001 (HTTPS Desktop GUI), 4400 (Hub Port)
 EXPOSE 3000 3001 4400
+
+# Health check — detects if the Selkies web desktop is responsive
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:3000/ > /dev/null 2>&1 || exit 1
 
 # Persistent Volume
 VOLUME /config

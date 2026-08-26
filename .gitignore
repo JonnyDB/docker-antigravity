@@ -1,1 +1,4 @@
 config/
+workspace/
+.env
+*.tar.gz
