@@ -1,0 +1,21 @@
+#!/bin/bash
+# Helper script to perform interactive Google OAuth login using the agy CLI
+set -e
+
+AGY_BIN="/config/.local/bin/agy"
+if [ ! -f "$AGY_BIN" ]; then
+    echo "[agy-login] CLI binary not found. Installing into /config/.local/bin..."
+    mkdir -p /config/.local/bin
+    curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir /config/.local/bin
+fi
+
+echo "================================================================================"
+echo "Google Antigravity OAuth Login"
+echo "================================================================================"
+echo "Starting authentication flow..."
+echo "1. Follow the URL displayed below in your web browser."
+echo "2. Authorize your Google account."
+echo "3. Paste the authorization code back here if prompted."
+echo "================================================================================"
+
+s6-setuidgid abc env HOME=/config "$AGY_BIN"

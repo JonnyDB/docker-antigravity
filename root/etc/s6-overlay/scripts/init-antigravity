@@ -1,0 +1,114 @@
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+# Main initialization logic for Antigravity 2.0 container
+
+set -e
+
+echo "[init-antigravity] Initializing persistent directories in /config..."
+
+mkdir -p \
+    /config/{app/antigravity,.gemini/config,.gemini/antigravity,.antigravity/bin,.npm-global/bin,.local/bin,.pipx,.cache,.config,workspace,.ssh,custom-cont-init.d,custom-services.d}
+
+# 1. Install or update Antigravity 2.0 Desktop in /config/app/antigravity
+ANTIGRAVITY_EXE="/config/app/antigravity/antigravity"
+if [[ ! -f "$ANTIGRAVITY_EXE" ]] || [[ "${FORCE_UPDATE:-false}" == "true" ]]; then
+    ANTIGRAVITY_VERSION="${ANTIGRAVITY_VERSION:-2.10.0-4996573600546816}"
+    ANTIGRAVITY_URL="${ANTIGRAVITY_URL:-https://storage.googleapis.com/antigravity-public/antigravity-hub/${ANTIGRAVITY_VERSION}/linux-x64/Antigravity.tar.gz}"
+    echo "[init-antigravity] Downloading and installing Google Antigravity 2.0 Desktop (v${ANTIGRAVITY_VERSION}) into /config/app/antigravity..."
+    TMP_TAR="/tmp/Antigravity.tar.gz"
+    if curl -fSL -o "${TMP_TAR}" "${ANTIGRAVITY_URL}"; then
+        tar -xzf "${TMP_TAR}" -C /config/app/antigravity --strip-components=1
+        rm -f "${TMP_TAR}"
+        chmod +x "$ANTIGRAVITY_EXE" 2>/dev/null || chmod +x /config/app/antigravity/Antigravity 2>/dev/null || true
+        if [ -f /config/app/antigravity/chrome-sandbox ]; then
+            chown root:root /config/app/antigravity/chrome-sandbox 2>/dev/null || true
+            chmod 4755 /config/app/antigravity/chrome-sandbox 2>/dev/null || true
+        fi
+        echo "[init-antigravity] Google Antigravity 2.0 Desktop installed successfully."
+    else
+        echo "[init-antigravity] WARNING: Failed to download Antigravity 2.0 Desktop from ${ANTIGRAVITY_URL}"
+    fi
+fi
+
+# 2. Install or update Antigravity CLI (agy) in /config/.local/bin
+AGY_CLI="/config/.local/bin/agy"
+if [[ ! -f "$AGY_CLI" ]] || [[ "${AUTO_UPDATE:-false}" == "true" ]]; then
+    echo "[init-antigravity] Installing / Updating Antigravity CLI (agy) into /config/.local/bin..."
+    mkdir -p /config/.local/bin
+    curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir /config/.local/bin || true
+    chmod +x "$AGY_CLI" 2>/dev/null || true
+fi
+
+# Sudo configuration for abc user
+if [[ -z ${LSIO_NON_ROOT_USER} ]] && [[ -z ${LSIO_READ_ONLY_FS} ]]; then
+    if [[ -n "${SUDO_PASSWORD}" ]] || [[ -n "${SUDO_PASSWORD_HASH}" ]]; then
+        echo "[init-antigravity] Setting up sudo access for abc..."
+        if ! grep -q 'abc' /etc/sudoers; then
+            echo "abc ALL=(ALL:ALL) ALL" >> /etc/sudoers
+        fi
+        if [[ -n "${SUDO_PASSWORD_HASH}" ]]; then
+            sed -i "s|^abc:\!:|abc:${SUDO_PASSWORD_HASH}:|" /etc/shadow
+        else
+            echo -e "${SUDO_PASSWORD}\n${SUDO_PASSWORD}" | passwd abc
+        fi
+    fi
+fi
+
+# Deploy default shell profiles
+if [[ ! -f /config/.bashrc ]]; then
+    echo "[init-antigravity] Deploying default .bashrc..."
+    cp /defaults/.bashrc /config/.bashrc
+fi
+
+if [[ ! -f /config/.profile ]]; then
+    echo "[init-antigravity] Deploying default .profile..."
+    cp /defaults/.profile /config/.profile
+fi
+
+# Deploy default AGY settings
+if [[ ! -f /config/.gemini/antigravity-cli/settings.json ]]; then
+    mkdir -p /config/.gemini/antigravity-cli
+    cp /defaults/settings.json /config/.gemini/antigravity-cli/settings.json
+fi
+
+# Deploy default config.json
+if [[ ! -f /config/.gemini/config/config.json ]]; then
+    cp /defaults/config.json /config/.gemini/config/config.json
+fi
+
+# Pre-seed OAuth token if provided
+if [[ -n "${ANTIGRAVITY_OAUTH_TOKEN:-}" ]]; then
+    echo "[init-antigravity] Pre-seeding OAuth token into /config/.gemini/jetski-standalone-oauth-token..."
+    echo -n "${ANTIGRAVITY_OAUTH_TOKEN}" > /config/.gemini/jetski-standalone-oauth-token
+    chmod 600 /config/.gemini/jetski-standalone-oauth-token
+    unset ANTIGRAVITY_OAUTH_TOKEN
+fi
+
+# Export global profile environment
+cat <<'EOF' > /etc/profile.d/antigravity-env.sh
+export HOME="/config"
+export NPM_CONFIG_PREFIX="/config/.npm-global"
+export PYTHONUSERBASE="/config/.local"
+export PIPX_HOME="/config/.pipx"
+export PIPX_BIN_DIR="/config/.local/bin"
+export PATH="/config/.local/bin:/config/.npm-global/bin:${PATH}"
+EOF
+chmod +x /etc/profile.d/antigravity-env.sh
+
+# Permission adjustments using lsiown (pruning workspace for startup performance)
+if [[ -z ${LSIO_NON_ROOT_USER} ]]; then
+    PUID=${PUID:-911}
+    if [[ ! "$(stat -c %u /config/.bashrc 2>/dev/null)" == "${PUID}" ]]; then
+        echo "[init-antigravity] Ownership change detected. Adjusting /config permissions..."
+        find /config -path "/config/workspace" -prune -o -exec lsiown abc:abc {} +
+        lsiown abc:abc /config/workspace
+    fi
+    chmod 700 /config/.ssh
+    if [[ -n "$(ls -A /config/.ssh 2>/dev/null)" ]]; then
+        find /config/.ssh/ -type d -exec chmod 700 '{}' \;
+        find /config/.ssh/ -type f -exec chmod 600 '{}' \;
+        find /config/.ssh/ -type f -iname '*.pub' -exec chmod 644 '{}' \;
+    fi
+fi
+
+echo "[init-antigravity] Initialization complete."

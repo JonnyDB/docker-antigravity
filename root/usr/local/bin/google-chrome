@@ -1,0 +1,3 @@
+#!/bin/bash
+# Wrapper script for Google Chrome inside container with sandboxing and memory flags
+exec /usr/bin/google-chrome-stable --no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage "$@"

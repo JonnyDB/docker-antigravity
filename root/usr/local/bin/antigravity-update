@@ -1,0 +1,13 @@
+#!/bin/bash
+# Manual update script for Antigravity 2.0 Desktop and CLI in /config
+set -e
+
+echo "================================================================================"
+echo "Updating Google Antigravity 2.0 Desktop and CLI in /config"
+echo "================================================================================"
+
+FORCE_UPDATE=true /etc/s6-overlay/scripts/init-antigravity
+
+echo "================================================================================"
+echo "Update complete! You can restart Antigravity via the VNC desktop."
+echo "================================================================================"

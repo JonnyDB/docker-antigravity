@@ -1,0 +1,14 @@
+#!/bin/bash
+# Diagnostic script to check Antigravity 2.0 status
+set -e
+
+echo "================================================================================"
+echo "Google Antigravity 2.0 Status"
+echo "================================================================================"
+echo "Desktop Binary    : $([ -f /config/app/antigravity/antigravity ] && echo 'Installed (/config/app/antigravity)' || echo 'Missing (will install on start)')"
+echo "CLI Binary (agy)  : $([ -f /config/.local/bin/agy ] && echo 'Installed (/config/.local/bin/agy)' || echo 'Missing (will install on start)')"
+echo "OAuth Token       : $([ -s /config/.gemini/jetski-standalone-oauth-token ] && echo 'Present (Authenticated)' || echo 'Missing (Unauthenticated - run agy-login)')"
+echo "Web Desktop HTTP  : $(nc -z 127.0.0.1 3000 2>/dev/null && echo 'Active (:3000)' || echo 'Inactive')"
+echo "Web Desktop HTTPS : $(nc -z 127.0.0.1 3001 2>/dev/null && echo 'Active (:3001)' || echo 'Inactive')"
+echo "Hub Port (4400)   : $(nc -z 127.0.0.1 4400 2>/dev/null && echo 'Active (:4400)' || echo 'Inactive / Waiting')"
+echo "================================================================================"

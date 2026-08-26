@@ -1,0 +1,35 @@
+#!/bin/bash
+# Desktop URL opener: Opens Google Chrome inside the VNC session, copies URL to clipboard, and shows popup
+
+URL="$1"
+
+if [ -z "$URL" ]; then
+    exit 0
+fi
+
+echo "[xdg-open] URL requested: $URL" >> /config/.antigravity/opened_urls.log 2>/dev/null || true
+
+# 1. Copy URL to X11 clipboard
+if command -v xclip >/dev/null 2>&1; then
+    echo -n "$URL" | xclip -selection clipboard 2>/dev/null || true
+    echo -n "$URL" | xclip -selection primary 2>/dev/null || true
+fi
+
+# 2. Show desktop notification
+if command -v notify-send >/dev/null 2>&1; then
+    notify-send "Opening Google Sign-In" "$URL" -t 10000 2>/dev/null || true
+fi
+
+# 3. Launch Google Chrome inside the desktop session
+if [ -x /usr/local/bin/google-chrome ]; then
+    /usr/local/bin/google-chrome "$URL" &
+elif command -v google-chrome-stable >/dev/null 2>&1; then
+    google-chrome-stable --no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage "$URL" &
+elif command -v zenity >/dev/null 2>&1 && [ -n "$DISPLAY" ]; then
+    zenity --info \
+        --title="Google Sign-In Link" \
+        --text="Google Sign-In URL:\n\n$URL\n\n(Copied to clipboard)" \
+        --width=600 2>/dev/null &
+fi
+
+exit 0

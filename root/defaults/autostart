@@ -1,0 +1,15 @@
+#!/bin/bash
+# Autostart entrypoint executed inside the X11 desktop environment as user 'abc'
+
+# Export environment paths
+export HOME="/config"
+export NPM_CONFIG_PREFIX="/config/.npm-global"
+export PYTHONUSERBASE="/config/.local"
+export PIPX_HOME="/config/.pipx"
+export PIPX_BIN_DIR="/config/.local/bin"
+export PATH="/config/.local/bin:/config/.npm-global/bin:${PATH}"
+
+cd /config/workspace || cd /config
+
+echo "[autostart] Launching Google Antigravity 2.0 Desktop..."
+/usr/local/bin/antigravity &

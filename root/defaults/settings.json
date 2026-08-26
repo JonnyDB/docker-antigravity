@@ -1,0 +1,9 @@
+{
+  "colorScheme": "tokyo night",
+  "altScreenMode": "default",
+  "toolPermission": "request-review",
+  "artifactReviewPolicy": "asks-for-review",
+  "enableTerminalSandbox": false,
+  "allowNonWorkspaceAccess": true,
+  "notifications": false
+}

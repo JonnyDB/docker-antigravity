@@ -1,0 +1,14 @@
+#!/bin/bash
+# Wrapper script to launch Antigravity 2.0 with proper sandboxing and rendering flags
+
+BINARY="/config/app/antigravity/antigravity"
+if [ ! -f "$BINARY" ]; then
+    BINARY="/config/app/antigravity/Antigravity"
+fi
+
+if [ ! -f "$BINARY" ]; then
+    echo "[antigravity] Antigravity 2.0 executable not found in /config/app/antigravity. Running first-time installation..."
+    /etc/s6-overlay/scripts/init-antigravity
+fi
+
+exec "$BINARY" --no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage "$@"
