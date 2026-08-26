@@ -1,5 +1,5 @@
 #!/bin/bash
-# Autostart entrypoint executed inside the X11 desktop environment as user 'abc'
+# Autostart entrypoint executed inside the Wayland (labwc) session as user 'abc'
 
 # Export environment paths preserving /lsiopy/bin
 export HOME="/config"
@@ -11,5 +11,5 @@ export PATH="/lsiopy/bin:/config/.local/bin:/config/.npm-global/bin:/usr/local/s
 
 cd /config/workspace || cd /config
 
-echo "[autostart] Launching Google Antigravity 2.0 Desktop..."
+echo "[autostart_wayland] Launching Google Antigravity 2.0 Desktop..."
 /usr/local/bin/antigravity &

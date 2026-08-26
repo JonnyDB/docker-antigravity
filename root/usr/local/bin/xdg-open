@@ -1,5 +1,5 @@
 #!/bin/bash
-# Desktop URL opener: Opens Google Chrome inside the VNC session, copies URL to clipboard, and shows popup
+# Desktop URL opener: Opens Google Chrome inside the Selkies desktop session, copies URL to clipboard, and shows popup
 
 URL="$1"
 
@@ -9,7 +9,7 @@ fi
 
 echo "[xdg-open] URL requested: $URL" >> /config/.antigravity/opened_urls.log 2>/dev/null || true
 
-# 1. Copy URL to X11 clipboard
+# 1. Copy URL to X11 / Wayland clipboard
 if command -v xclip >/dev/null 2>&1; then
     echo -n "$URL" | xclip -selection clipboard 2>/dev/null || true
     echo -n "$URL" | xclip -selection primary 2>/dev/null || true

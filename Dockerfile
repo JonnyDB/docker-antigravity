@@ -1,17 +1,19 @@
-FROM ghcr.io/linuxserver/baseimage-kasmvnc:ubuntunoble
+FROM ghcr.io/linuxserver/baseimage-selkies:ubunturesolute
 
-# Set metadata labels in LSIO format
-LABEL maintainer="Antigravity Community"
+# Metadata labels in LSIO format
+LABEL maintainer="JonnyDB"
 LABEL org.opencontainers.image.title="docker-antigravity"
-LABEL org.opencontainers.image.description="LinuxServer.io container for Google Antigravity 2.0 Desktop with KasmVNC Web UX, Google Chrome for in-container OAuth, Remote Control, Node.js, and Python"
-LABEL org.opencontainers.image.authors="Google Antigravity Community"
+LABEL org.opencontainers.image.description="LinuxServer.io container for Google Antigravity 2.0 Desktop using Selkies streaming on Ubuntu Resolute with Google Chrome, Node.js, Python, and dynamic config volume deployment"
+LABEL org.opencontainers.image.authors="JonnyDB"
 LABEL org.opencontainers.image.url="https://antigravity.google"
 LABEL org.opencontainers.image.source="https://github.com/JonnyDB/docker-antigravity"
 
-# Environment configuration
+# Environment configuration - preserve /lsiopy/bin for Selkies internal runtime
 ENV DEBIAN_FRONTEND="noninteractive" \
     HOME="/config" \
     TITLE="Google Antigravity 2.0" \
+    NO_GAMEPAD=true \
+    PIXELFLUX_WAYLAND=true \
     ANTIGRAVITY_CONFIG_DIR="/config/.gemini" \
     ANTIGRAVITY_APP_DIR="/config/.antigravity" \
     ANTIGRAVITY_VERSION="2.10.0-4996573600546816" \
@@ -20,61 +22,29 @@ ENV DEBIAN_FRONTEND="noninteractive" \
     PYTHONUSERBASE="/config/.local" \
     PIPX_HOME="/config/.pipx" \
     PIPX_BIN_DIR="/config/.local/bin" \
-    PATH="/config/.local/bin:/config/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games"
+    PATH="/lsiopy/bin:/config/.local/bin:/config/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-# Install core packages, Desktop libraries, utilities, Google Chrome, Node.js, Python 3, and development tools
+# Install system dependencies, desktop libraries, Node.js, Python, development tools, Google Chrome, and set Selkies logo
 RUN \
-    echo "**** Install system dependencies, desktop libraries, Node.js, and Python ****" && \
+    echo "**** install system dependencies and development tools ****" && \
     apt-get update && \
-    apt-get install -y --no-install-recommends \
+    apt-get install -y \
         bash \
         build-essential \
         ca-certificates \
         curl \
-        dbus-x11 \
         emacs \
         git \
         gnupg \
         jq \
         libasound2t64 \
-        libatk-bridge2.0-0 \
-        libatk1.0-0 \
-        libc6 \
-        libcairo2 \
-        libcups2 \
-        libdbus-1-3 \
-        libexpat1 \
-        libffi-dev \
         libgbm1 \
-        libglib2.0-0 \
         libgtk-3-0 \
-        libnotify-bin \
-        libnotify4 \
         libnss3 \
-        libpango-1.0-0 \
         libsecret-1-0 \
-        libssl-dev \
-        libu2f-udev \
-        libvulkan1 \
-        libx11-6 \
-        libx11-xcb1 \
-        libxcb1 \
-        libxcomposite1 \
-        libxcursor1 \
-        libxdamage1 \
-        libxext6 \
-        libxfixes3 \
-        libxi6 \
-        libxrandr2 \
-        libxrender1 \
-        libxss1 \
-        libxtst6 \
-        locales \
         nano \
         net-tools \
-        netcat-openbsd \
         nodejs \
-        npm \
         openssh-client \
         pkg-config \
         procps \
@@ -92,20 +62,22 @@ RUN \
         wget \
         xclip \
         xdg-utils \
-        xsel \
-        xz-utils \
-        zenity \
-        zlib1g-dev && \
+        zenity && \
     npm install -g corepack yarn pnpm && \
     \
-    echo "**** Install Google Chrome for in-container OAuth sign-in ****" && \
+    echo "**** install Google Chrome for in-container OAuth authentication ****" && \
     mkdir -p /etc/apt/keyrings && \
     curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg && \
     echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
     apt-get update && \
     apt-get install -y --no-install-recommends google-chrome-stable && \
     \
-    echo "**** Clean up ****" && \
+    echo "**** install Antigravity logo for Selkies web client ****" && \
+    mkdir -p /usr/share/selkies/www && \
+    curl -fsSL -o /usr/share/selkies/www/icon.png \
+        https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-png/dark/antigravity-color.png && \
+    \
+    echo "**** clean up apt caches ****" && \
     apt-get clean && \
     rm -rf \
         /tmp/* \
@@ -118,6 +90,7 @@ COPY root/ /
 # Ensure executable permissions
 RUN chmod +x \
     /defaults/autostart \
+    /defaults/autostart_wayland \
     /etc/s6-overlay/scripts/init-antigravity \
     /usr/local/bin/antigravity \
     /usr/local/bin/antigravity-update \
