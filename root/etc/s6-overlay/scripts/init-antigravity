@@ -11,20 +11,39 @@ mkdir -p \
 
 # 1. Install or update Antigravity 2.0 Desktop in /config/app/antigravity
 ANTIGRAVITY_EXE="/config/app/antigravity/antigravity"
-if [[ ! -f "$ANTIGRAVITY_EXE" ]] || [[ "${FORCE_UPDATE:-false}" == "true" ]]; then
-    ANTIGRAVITY_VERSION="${ANTIGRAVITY_VERSION:-2.10.0-4996573600546816}"
+ANTIGRAVITY_VERSION_FILE="/config/app/antigravity/.installed_version"
+TARGET_VERSION="${ANTIGRAVITY_VERSION:-2.10.0-4996573600546816}"
+
+INSTALLED_VERSION=""
+if [[ -f "$ANTIGRAVITY_VERSION_FILE" ]]; then
+    INSTALLED_VERSION="$(cat "$ANTIGRAVITY_VERSION_FILE" 2>/dev/null || true)"
+fi
+
+NEED_DESKTOP_UPDATE=false
+if [[ ! -f "$ANTIGRAVITY_EXE" ]]; then
+    NEED_DESKTOP_UPDATE=true
+elif [[ "${FORCE_UPDATE:-false}" == "true" ]] || [[ "${AUTO_UPDATE:-false}" == "true" ]]; then
+    NEED_DESKTOP_UPDATE=true
+elif [[ -n "$TARGET_VERSION" && "$INSTALLED_VERSION" != "$TARGET_VERSION" ]]; then
+    echo "[init-antigravity] Version change detected (installed: '${INSTALLED_VERSION:-unknown}', target: '${TARGET_VERSION}'). Triggering update..."
+    NEED_DESKTOP_UPDATE=true
+fi
+
+if [[ "$NEED_DESKTOP_UPDATE" == "true" ]]; then
+    ANTIGRAVITY_VERSION="${TARGET_VERSION}"
     ANTIGRAVITY_URL="${ANTIGRAVITY_URL:-https://storage.googleapis.com/antigravity-public/antigravity-hub/${ANTIGRAVITY_VERSION}/linux-x64/Antigravity.tar.gz}"
     echo "[init-antigravity] Downloading and installing Google Antigravity 2.0 Desktop (v${ANTIGRAVITY_VERSION}) into /config/app/antigravity..."
     TMP_TAR="/tmp/Antigravity.tar.gz"
     if curl -fSL -o "${TMP_TAR}" "${ANTIGRAVITY_URL}"; then
         tar -xzf "${TMP_TAR}" -C /config/app/antigravity --strip-components=1
         rm -f "${TMP_TAR}"
+        echo "${ANTIGRAVITY_VERSION}" > "$ANTIGRAVITY_VERSION_FILE"
         chmod +x "$ANTIGRAVITY_EXE" 2>/dev/null || chmod +x /config/app/antigravity/Antigravity 2>/dev/null || true
         if [ -f /config/app/antigravity/chrome-sandbox ]; then
             chown root:root /config/app/antigravity/chrome-sandbox 2>/dev/null || true
             chmod 4755 /config/app/antigravity/chrome-sandbox 2>/dev/null || true
         fi
-        echo "[init-antigravity] Google Antigravity 2.0 Desktop installed successfully."
+        echo "[init-antigravity] Google Antigravity 2.0 Desktop (v${ANTIGRAVITY_VERSION}) installed successfully."
     else
         echo "[init-antigravity] WARNING: Failed to download Antigravity 2.0 Desktop from ${ANTIGRAVITY_URL}"
     fi
@@ -32,7 +51,7 @@ fi
 
 # 2. Install or update Antigravity CLI (agy) in /config/.local/bin
 AGY_CLI="/config/.local/bin/agy"
-if [[ ! -f "$AGY_CLI" ]] || [[ "${AUTO_UPDATE:-false}" == "true" ]]; then
+if [[ ! -f "$AGY_CLI" ]] || [[ "${AUTO_UPDATE:-false}" == "true" ]] || [[ "${FORCE_UPDATE:-false}" == "true" ]]; then
     echo "[init-antigravity] Installing / Updating Antigravity CLI (agy) into /config/.local/bin..."
     mkdir -p /config/.local/bin
     curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir /config/.local/bin || true

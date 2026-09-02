@@ -14,7 +14,7 @@ services:
       - TZ=${TZ:-America/New_York}
       - TITLE=${TITLE:-Google Antigravity 2.0}
       # Optional: Pin a specific version of Antigravity Desktop
-      - ANTIGRAVITY_VERSION=${ANTIGRAVITY_VERSION:-2.10.0-4996573600546816}
+      - ANTIGRAVITY_VERSION=${ANTIGRAVITY_VERSION:-2.11.0-6376446768316416}
       # Optional: Auto-update on container start (true/false)
       - AUTO_UPDATE=${AUTO_UPDATE:-false}
       # Optional: HTTP Basic Authentication for web access

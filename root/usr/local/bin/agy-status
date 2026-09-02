@@ -5,7 +5,11 @@ set -e
 echo "================================================================================"
 echo "Google Antigravity 2.0 Status"
 echo "================================================================================"
-echo "Desktop Binary    : $([ -f /config/app/antigravity/antigravity ] && echo 'Installed (/config/app/antigravity)' || echo 'Missing (will install on start)')"
+INSTALLED_VER="Unknown"
+if [ -f /config/app/antigravity/.installed_version ]; then
+    INSTALLED_VER="$(cat /config/app/antigravity/.installed_version 2>/dev/null || echo 'Unknown')"
+fi
+echo "Desktop Binary    : $([ -f /config/app/antigravity/antigravity ] && echo "Installed (v${INSTALLED_VER} in /config/app/antigravity)" || echo 'Missing (will install on start)')"
 echo "CLI Binary (agy)  : $([ -f /config/.local/bin/agy ] && echo 'Installed (/config/.local/bin/agy)' || echo 'Missing (will install on start)')"
 echo "OAuth Token       : $([ -s /config/.gemini/jetski-standalone-oauth-token ] && echo 'Present (Authenticated)' || echo 'Missing (Unauthenticated - run agy-login)')"
 echo "Web Desktop HTTP  : $(nc -z 127.0.0.1 3000 2>/dev/null && echo 'Active (:3000)' || echo 'Inactive')"
