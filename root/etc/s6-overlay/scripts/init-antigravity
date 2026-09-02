@@ -10,19 +10,33 @@ mkdir -p \
     /config/{app/antigravity,.gemini/config,.gemini/antigravity,.antigravity/bin,.npm-global/bin,.local/bin,.pipx,.cache,.config,workspace,.ssh,custom-cont-init.d,custom-services.d}
 
 # 1. Install or update Antigravity 2.0 Desktop in /config/app/antigravity
-ANTIGRAVITY_EXE="/config/app/antigravity/antigravity"
-ANTIGRAVITY_VERSION_FILE="/config/app/antigravity/.installed_version"
-TARGET_VERSION="${ANTIGRAVITY_VERSION:-2.10.0-4996573600546816}"
+ANTIGRAVITY_DIR="/config/app/antigravity"
+ANTIGRAVITY_EXE="${ANTIGRAVITY_DIR}/antigravity"
+ANTIGRAVITY_VERSION_FILE="${ANTIGRAVITY_DIR}/.installed_version"
+TARGET_VERSION="${ANTIGRAVITY_VERSION:-2.11.0-6376446768316416}"
+
+AUTO_UPDATE_NORM="$(echo "${AUTO_UPDATE:-false}" | tr '[:upper:]' '[:lower:]')"
+FORCE_UPDATE_NORM="$(echo "${FORCE_UPDATE:-false}" | tr '[:upper:]' '[:lower:]')"
 
 INSTALLED_VERSION=""
 if [[ -f "$ANTIGRAVITY_VERSION_FILE" ]]; then
-    INSTALLED_VERSION="$(cat "$ANTIGRAVITY_VERSION_FILE" 2>/dev/null || true)"
+    INSTALLED_VERSION="$(cat "$ANTIGRAVITY_VERSION_FILE" 2>/dev/null | tr -d '[:space:]' || true)"
+fi
+
+BINARY_EXISTS=false
+if [[ -f "${ANTIGRAVITY_DIR}/antigravity" || -f "${ANTIGRAVITY_DIR}/Antigravity" ]]; then
+    BINARY_EXISTS=true
 fi
 
 NEED_DESKTOP_UPDATE=false
-if [[ ! -f "$ANTIGRAVITY_EXE" ]]; then
+if ! $BINARY_EXISTS; then
+    echo "[init-antigravity] Antigravity desktop binary not found. Triggering initial install..."
     NEED_DESKTOP_UPDATE=true
-elif [[ "${FORCE_UPDATE:-false}" == "true" ]] || [[ "${AUTO_UPDATE:-false}" == "true" ]]; then
+elif [[ "$FORCE_UPDATE_NORM" == "true" || "$FORCE_UPDATE_NORM" == "1" || "$FORCE_UPDATE_NORM" == "yes" ]]; then
+    echo "[init-antigravity] FORCE_UPDATE enabled. Triggering desktop update..."
+    NEED_DESKTOP_UPDATE=true
+elif [[ "$AUTO_UPDATE_NORM" == "true" || "$AUTO_UPDATE_NORM" == "1" || "$AUTO_UPDATE_NORM" == "yes" ]]; then
+    echo "[init-antigravity] AUTO_UPDATE enabled. Triggering desktop update..."
     NEED_DESKTOP_UPDATE=true
 elif [[ -n "$TARGET_VERSION" && "$INSTALLED_VERSION" != "$TARGET_VERSION" ]]; then
     echo "[init-antigravity] Version change detected (installed: '${INSTALLED_VERSION:-unknown}', target: '${TARGET_VERSION}'). Triggering update..."
@@ -32,26 +46,55 @@ fi
 if [[ "$NEED_DESKTOP_UPDATE" == "true" ]]; then
     ANTIGRAVITY_VERSION="${TARGET_VERSION}"
     ANTIGRAVITY_URL="${ANTIGRAVITY_URL:-https://storage.googleapis.com/antigravity-public/antigravity-hub/${ANTIGRAVITY_VERSION}/linux-x64/Antigravity.tar.gz}"
-    echo "[init-antigravity] Downloading and installing Google Antigravity 2.0 Desktop (v${ANTIGRAVITY_VERSION}) into /config/app/antigravity..."
+    echo "[init-antigravity] Downloading and installing Google Antigravity 2.0 Desktop (v${ANTIGRAVITY_VERSION}) into ${ANTIGRAVITY_DIR}..."
     TMP_TAR="/tmp/Antigravity.tar.gz"
+    TMP_EXTRACT="$(mktemp -d /tmp/antigravity_staging_XXXXXX)"
+    rm -f "${TMP_TAR}"
+
     if curl -fSL -o "${TMP_TAR}" "${ANTIGRAVITY_URL}"; then
-        tar -xzf "${TMP_TAR}" -C /config/app/antigravity --strip-components=1
-        rm -f "${TMP_TAR}"
-        echo "${ANTIGRAVITY_VERSION}" > "$ANTIGRAVITY_VERSION_FILE"
-        chmod +x "$ANTIGRAVITY_EXE" 2>/dev/null || chmod +x /config/app/antigravity/Antigravity 2>/dev/null || true
-        if [ -f /config/app/antigravity/chrome-sandbox ]; then
-            chown root:root /config/app/antigravity/chrome-sandbox 2>/dev/null || true
-            chmod 4755 /config/app/antigravity/chrome-sandbox 2>/dev/null || true
+        echo "[init-antigravity] Extracting package into staging directory..."
+        if tar -xzf "${TMP_TAR}" -C "${TMP_EXTRACT}" --strip-components=1 --no-same-owner; then
+            echo "[init-antigravity] Deploying files to ${ANTIGRAVITY_DIR}..."
+            mkdir -p "${ANTIGRAVITY_DIR}"
+            rm -rf "${ANTIGRAVITY_DIR:?}"/* "${ANTIGRAVITY_DIR:?}"/.* 2>/dev/null || true
+            cp -a "${TMP_EXTRACT}/." "${ANTIGRAVITY_DIR}/"
+            echo "${ANTIGRAVITY_VERSION}" > "$ANTIGRAVITY_VERSION_FILE"
+            chmod +x "${ANTIGRAVITY_DIR}/antigravity" 2>/dev/null || true
+            chmod +x "${ANTIGRAVITY_DIR}/Antigravity" 2>/dev/null || true
+            # Ensure lowercase alias exists
+            if [[ -f "${ANTIGRAVITY_DIR}/Antigravity" && ! -f "${ANTIGRAVITY_DIR}/antigravity" ]]; then
+                ln -sf "${ANTIGRAVITY_DIR}/Antigravity" "${ANTIGRAVITY_DIR}/antigravity"
+            fi
+            if [ -f "${ANTIGRAVITY_DIR}/chrome-sandbox" ]; then
+                chown root:root "${ANTIGRAVITY_DIR}/chrome-sandbox" 2>/dev/null || true
+                chmod 4755 "${ANTIGRAVITY_DIR}/chrome-sandbox" 2>/dev/null || true
+            fi
+            echo "[init-antigravity] Google Antigravity 2.0 Desktop (v${ANTIGRAVITY_VERSION}) installed successfully."
+        else
+            echo "[init-antigravity] ERROR: Failed to extract Antigravity tarball."
         fi
-        echo "[init-antigravity] Google Antigravity 2.0 Desktop (v${ANTIGRAVITY_VERSION}) installed successfully."
+        rm -rf "${TMP_TAR}" "${TMP_EXTRACT}"
     else
         echo "[init-antigravity] WARNING: Failed to download Antigravity 2.0 Desktop from ${ANTIGRAVITY_URL}"
+        rm -rf "${TMP_TAR}" "${TMP_EXTRACT}"
     fi
 fi
 
 # 2. Install or update Antigravity CLI (agy) in /config/.local/bin
 AGY_CLI="/config/.local/bin/agy"
-if [[ ! -f "$AGY_CLI" ]] || [[ "${AUTO_UPDATE:-false}" == "true" ]] || [[ "${FORCE_UPDATE:-false}" == "true" ]]; then
+AGY_EXISTS=false
+if [[ -f "$AGY_CLI" ]]; then
+    AGY_EXISTS=true
+fi
+
+NEED_CLI_UPDATE=false
+if ! $AGY_EXISTS; then
+    NEED_CLI_UPDATE=true
+elif [[ "$AUTO_UPDATE_NORM" == "true" || "$AUTO_UPDATE_NORM" == "1" || "$AUTO_UPDATE_NORM" == "yes" || "$FORCE_UPDATE_NORM" == "true" || "$FORCE_UPDATE_NORM" == "1" || "$FORCE_UPDATE_NORM" == "yes" ]]; then
+    NEED_CLI_UPDATE=true
+fi
+
+if [[ "$NEED_CLI_UPDATE" == "true" ]]; then
     echo "[init-antigravity] Installing / Updating Antigravity CLI (agy) into /config/.local/bin..."
     mkdir -p /config/.local/bin
     curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir /config/.local/bin || true
